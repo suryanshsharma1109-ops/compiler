@@ -43,14 +43,16 @@ def run_code():
         #  C
         elif language == "c":
             with open("temp.c", "w") as f:
-                f.write(code)
+            f.write(code)
 
+    # 🔴 Compile step
             compile_process = subprocess.run(
                 ["gcc", "temp.c", "-o", "temp.exe"],
                 capture_output=True,
                 text=True
             )
 
+    # 🔴 IMPORTANT CHECK
             if compile_process.returncode != 0:
                 return jsonify({
                     "output": "",
@@ -58,8 +60,7 @@ def run_code():
                     "time": 0
                 })
 
-            start = time.time()
-
+    # 🟢 Only runs if compile SUCCESS
             result = subprocess.run(
                 ["temp.exe"],
                 input=user_input,
@@ -68,27 +69,11 @@ def run_code():
                 timeout=5
             )
 
-            end = time.time()
-
             return jsonify({
                 "output": result.stdout,
                 "error": result.stderr,
-                "time": round(end - start, 4)
+                "time": 0
             })
-
-    except subprocess.TimeoutExpired:
-        return jsonify({
-            "output": "",
-            "error": "Execution timed out",
-            "time": 0
-        })
-
-    except Exception as e:
-        return jsonify({
-            "output": "",
-            "error": str(e),
-            "time": 0
-        })
 
 import os
 

@@ -43,7 +43,7 @@ def run_code():
         #  C
         elif language == "c":
             with open("temp.c", "w") as f:
-            f.write(code)
+                f.write(code)
 
     # 🔴 Compile step
             compile_process = subprocess.run(

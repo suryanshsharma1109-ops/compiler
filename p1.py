@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import subprocess
-import time
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -10,19 +10,19 @@ CORS(app)
 def home():
     return "Compiler Backend Running"
 
+
 @app.route('/run', methods=['POST'])
 def run_code():
-    code = request.json.get('code')
-    language = request.json.get('language')
-    user_input = request.json.get('input', '')
+    data = request.json
+    code = data.get("code")
+    language = data.get("language")
+    user_input = data.get("input", "")
 
     try:
-        #  PYTHON
+        # 🟢 PYTHON EXECUTION
         if language == "python":
             with open("temp.py", "w") as f:
                 f.write(code)
-
-            start = time.time()
 
             result = subprocess.run(
                 ["python", "temp.py"],
@@ -32,35 +32,31 @@ def run_code():
                 timeout=5
             )
 
-            end = time.time()
-
             return jsonify({
                 "output": result.stdout,
-                "error": result.stderr,
-                "time": round(end - start, 4)
+                "error": result.stderr
             })
 
-        #  C
+        # 🔴 C EXECUTION
         elif language == "c":
             with open("temp.c", "w") as f:
                 f.write(code)
 
-    # 🔴 Compile step
+            # Compile C code
             compile_process = subprocess.run(
                 ["gcc", "temp.c", "-o", "temp.exe"],
                 capture_output=True,
                 text=True
             )
 
-    # 🔴 IMPORTANT CHECK
+            # If compilation fails → return error
             if compile_process.returncode != 0:
                 return jsonify({
                     "output": "",
-                    "error": compile_process.stderr,
-                    "time": 0
+                    "error": compile_process.stderr
                 })
 
-    # 🟢 Only runs if compile SUCCESS
+            # Run executable
             result = subprocess.run(
                 ["temp.exe"],
                 input=user_input,
@@ -71,12 +67,23 @@ def run_code():
 
             return jsonify({
                 "output": result.stdout,
-                "error": result.stderr,
-                "time": 0
+                "error": result.stderr
             })
 
-import os
+        else:
+            return jsonify({
+                "output": "",
+                "error": "Unsupported language"
+            })
 
+    except subprocess.TimeoutExpired:
+        return jsonify({
+            "output": "",
+            "error": "Execution timed out"
+        })
+
+
+# 🔥 REQUIRED FOR RENDER
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)

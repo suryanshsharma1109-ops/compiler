@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Online Compiler</title>
+
+    <style>
+        body {
+            margin: 0;
+            background: #1e1e1e;
+            color: white;
+            font-family: Arial;
+        }
+
+        .top-bar {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            padding: 10px;
+            background: #2d2d2d;
+        }
+
+        select, button {
+            padding: 8px 12px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        button {
+            background: #007acc;
+            color: white;
+            cursor: pointer;
+        }
+
+        #editor {
+            height: 55vh;
+        }
+
+        .terminal {
+            height: 35vh;
+            background: black;
+            color: #00ff90;
+            font-family: monospace;
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+        }
+
+        #terminal-output {
+            flex: 1;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .terminal-input-line {
+            display: flex;
+        }
+
+        .terminal-input-line input {
+            flex: 1;
+            background: black;
+            color: #00ff90;
+            border: none;
+            outline: none;
+            font-family: monospace;
+        }
+    </style>
+
+    <script src="https://unpkg.com/monaco-editor@latest/min/vs/loader.js"></script>
+</head>
+
+<body>
+
+<div class="top-bar">
+    <select id="language">
+        <option value="python">Python</option>
+        <option value="c">C</option>
+    </select>
+
+    <button onclick="runCode()">Run ▶</button>
+    <button onclick="clearTerminal()">Clear</button>
+</div>
+
+<div id="editor"></div>
+
+<div class="terminal">
+    <div id="terminal-output"></div>
+
+    <div class="terminal-input-line">
+        <span>&gt;</span>
+        <input id="terminal-input" placeholder="Type input and press Enter">
+    </div>
+</div>
+
+<script>
+let editor;
+let inputLines = [];
+
+// Monaco
+require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@latest/min/vs' }});
+require(['vs/editor/editor.main'], function () {
+    editor = monaco.editor.create(document.getElementById('editor'), {
+        value: "print('Hello World')",
+        language: "python",
+        theme: "vs-dark",
+        automaticLayout: true
+    });
+});
+
+// Language switch
+document.getElementById("language").addEventListener("change", function () {
+    let lang = this.value;
+
+    if (lang === "python") {
+        monaco.editor.setModelLanguage(editor.getModel(), "python");
+        editor.setValue("print('Hello World')");
+    } else {
+        monaco.editor.setModelLanguage(editor.getModel(), "c");
+        editor.setValue("#include <stdio.h>\nint main(){\nprintf(\"Hello C\");\nreturn 0;\n}");
+    }
+
+    clearTerminal();
+});
+
+// Terminal input
+document.getElementById("terminal-input").addEventListener("keydown", function(e) {
+    if (e.key === "Enter") {
+        let value = this.value;
+
+        if (value.trim() !== "") {
+            inputLines.push(value);
+            appendToTerminal("> " + value);
+            this.value = "";
+        }
+    }
+});
+
+// Append output
+function appendToTerminal(text) {
+    let output = document.getElementById("terminal-output");
+    output.innerText += text + "\n";
+    output.scrollTop = output.scrollHeight;
+}
+
+// Clear terminal
+function clearTerminal() {
+    document.getElementById("terminal-output").innerText = "";
+    inputLines = [];
+}
+
+// Run code
+function runCode() {
+    let code = editor.getValue();
+    let language = document.getElementById("language").value;
+    let fullInput = inputLines.join("\n");
+
+    appendToTerminal("Running...");
+
+    fetch("http://127.0.0.1:5000/run", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            code: code,
+            language: language,
+            input: fullInput
+        })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.output) appendToTerminal(data.output);
+        if (data.error) appendToTerminal(data.error);
+
+        appendToTerminal("Execution Time: " + data.time + " sec");
+
+        inputLines = [];
+    })
+    .catch(() => {
+        appendToTerminal("Error connecting to server");
+    });
+}
+</script>
+
+</body>
+</html>
